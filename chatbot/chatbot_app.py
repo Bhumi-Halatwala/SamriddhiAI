@@ -179,13 +179,13 @@ with st.sidebar:
     
     st.markdown(
         f"""
-        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:0.75rem; font-size:0.83rem; line-height:1.5;">
-            <b>ID:</b> {cust_prof['customer_id']}<br/>
-            <b>Occupation:</b> {cust_prof['occupation']} (Age {cust_prof['age']})<br/>
-            <b>Monthly Income:</b> ₹{cust_prof['monthly_income']:,}<br/>
-            <b>Credit Score:</b> <span style="color:#0C447C; font-weight:700;">{cust_prof['bureau_score']}</span><br/>
-            <b>Active Loans:</b> {cust_prof['existing_loan_count']} ({', '.join(cust_prof['existing_loan_types']) if cust_prof['existing_loan_types'] else 'None'})<br/>
-            <b>KYC:</b> <span style="color:{'#27500A' if cust_prof['kyc_verified'] else '#854F0B'}; font-weight:600;">{'Verified' if cust_prof['kyc_verified'] else 'Re-KYC Due'}</span>
+        <div style="background:#F8FAFC !important; color:#1F2328 !important; border:1px solid #E2E8F0; border-radius:10px; padding:0.75rem; font-size:0.83rem; line-height:1.5;">
+            <b style="color:#1F2328 !important;">ID:</b> <span style="color:#1F2328 !important;">{cust_prof['customer_id']}</span><br/>
+            <b style="color:#1F2328 !important;">Occupation:</b> <span style="color:#1F2328 !important;">{cust_prof['occupation']} (Age {cust_prof['age']})</span><br/>
+            <b style="color:#1F2328 !important;">Monthly Income:</b> <span style="color:#1F2328 !important;">₹{cust_prof['monthly_income']:,}</span><br/>
+            <b style="color:#1F2328 !important;">Credit Score:</b> <span style="color:#0C447C !important; font-weight:700;">{cust_prof['bureau_score']}</span><br/>
+            <b style="color:#1F2328 !important;">Active Loans:</b> <span style="color:#1F2328 !important;">{cust_prof['existing_loan_count']} ({', '.join(cust_prof['existing_loan_types']) if cust_prof['existing_loan_types'] else 'None'})</span><br/>
+            <b style="color:#1F2328 !important;">KYC:</b> <span style="color:{'#27500A' if cust_prof['kyc_verified'] else '#854F0B'} !important; font-weight:600;">{'Verified' if cust_prof['kyc_verified'] else 'Re-KYC Due'}</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -208,8 +208,8 @@ with head_col:
     st.markdown(
         """
         <div style="padding-top: 0.2rem;">
-            <h1 style="font-size: 1.35rem; font-weight: 700; margin: 0; color: #1F2328;">Bharat Banking AI</h1>
-            <span style="color: #6B7280; font-size: 0.82rem;">Multilingual Voice & Banking Assistant</span>
+            <h1 style="font-size: 1.35rem; font-weight: 700; margin: 0; color: inherit;">Bharat Banking AI</h1>
+            <span style="color: inherit; opacity: 0.75; font-size: 0.82rem;">Multilingual Voice & Banking Assistant</span>
         </div>
         """,
         unsafe_allow_html=True,
