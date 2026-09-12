@@ -1,4 +1,4 @@
-﻿"""app/user_panel.py
+"""app/user_panel.py
 Customer-facing app for SamriddhiAI.
 
 Run from SamriddhiAI/ root:
@@ -22,6 +22,8 @@ from app.shared.style import (
     apply_brand_style, header, viewing_label, metric_card, reco_card,
     info_banner, hr, SHIELD_SVG,
 )
+
+CHATBOT_URL = "http://localhost:8503"
 
 st.set_page_config(
     page_title="SamriddhiAI - My Banking",
@@ -60,6 +62,8 @@ CATEGORY_LABELS = {
     "suspicious": "Unusual transfer",
 }
 
+def _chatbot_url_for(customer_id):
+    return f"http://localhost:8503/?customer_id={customer_id}"
 
 # ------------------------------------------------------------------
 # Altair chart helpers — clean light background, our palette
@@ -125,7 +129,7 @@ def render_sidebar():
     st.sidebar.markdown("### Welcome")
 
     quick = st.sidebar.radio(
-        "Sign in",
+        "",
         ["Healthy profile", "Stressed profile", "Enter my customer ID"],
         key="user_panel_login_radio",
     )
@@ -425,6 +429,32 @@ def render_for_you(bundle, row, stress_row):
     )
 
 
+def render_chat_tab(customer_id):
+    """Embed the multilingual chatbot in an iframe, with a fallback link."""
+    st.subheader("Chat with us")
+    st.caption(
+        "Ask about balance, loans, EMI, KYC, or anything else - in your own language."
+    )
+
+    try:
+        import streamlit.components.v1 as components
+        components.html(
+            f"""
+            <iframe
+                src="{_chatbot_url_for(customer_id)}"
+                width="100%"
+                height="720"
+                style="border:1px solid #E6E0D2; border-radius:8px; background:#FFFFFF;"
+                allow="microphone">
+            </iframe>
+            """,
+            height=740,
+            scrolling=True,
+        )
+    except Exception as e:
+        st.warning(f"Could not embed the chatbot inline: {e}")
+
+
 # ------------------------------------------------------------------
 # Main
 # ------------------------------------------------------------------
@@ -447,7 +477,7 @@ def main():
 
     st.markdown(viewing_label(customer_id), unsafe_allow_html=True)
 
-    tabs = st.tabs(["My account", "My money", "For you"])
+    tabs = st.tabs(["My account", "My money", "For you", "Chat"])
 
     with tabs[0]:
         render_my_account(row, life_row, stress_row)
@@ -455,6 +485,8 @@ def main():
         render_my_money(customer_id, row, stress_row)
     with tabs[2]:
         render_for_you(bundle, row, stress_row)
+    with tabs[3]:
+        render_chat_tab(customer_id)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,122 @@
+/* ---- Global ---- */
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+#MainMenu, footer, header {visibility: hidden;}
+
+.block-container {
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    max-width: 680px; /* Perfect popup widget width */
+}
+
+/* ---- Top bar ---- */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.2rem;
+    border-bottom: 1px solid #E5E7EB;
+}
+.app-header h1 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    color: #1F2328;
+}
+.app-header span {
+    color: #6B7280;
+    font-size: 0.85rem;
+}
+
+/* ---- Cards ---- */
+.card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.card h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin: 0 0 0.4rem 0;
+    color: #1F2328;
+}
+.card p {
+    font-size: 0.85rem;
+    color: #6B7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* ---- Badges ---- */
+.badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+.badge-green  { background: #EAF3DE; color: #27500A; }
+.badge-amber  { background: #FAEEDA; color: #854F0B; }
+.badge-red    { background: #FCEBEB; color: #791F1F; }
+.badge-blue   { background: #E6F1FB; color: #0C447C; }
+.badge-purple { background: #EEEDFE; color: #3C3489; }
+
+/* ---- Metric tiles ---- */
+.metric-tile {
+    background: #F7F8FA;
+    border-radius: 10px;
+    padding: 0.8rem;
+    text-align: center;
+}
+.metric-tile .value {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #1F2328;
+}
+.metric-tile .label {
+    font-size: 0.72rem;
+    color: #6B7280;
+    margin-top: 0.2rem;
+}
+
+/* ---- Chat bubbles ---- */
+.chat-bot {
+    background: #F3F4F6;
+    border-radius: 14px 14px 14px 3px;
+    padding: 0.65rem 0.95rem;
+    max-width: 82%;
+    margin-bottom: 0.3rem;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: #1F2328;
+}
+.chat-user {
+    background: #E6F1FB;
+    border-radius: 14px 14px 3px 14px;
+    padding: 0.65rem 0.95rem;
+    max-width: 82%;
+    margin-bottom: 0.5rem;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    margin-left: auto;
+    text-align: left;
+    color: #0C447C;
+}
+
+/* Compact voice audio capsule */
+.audio-capsule {
+    margin-top: 2px;
+    margin-bottom: 8px;
+}
+.audio-capsule audio {
+    height: 30px;
+    max-width: 250px;
+    outline: none;
+    border-radius: 20px;
+}

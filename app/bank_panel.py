@@ -1,4 +1,4 @@
-﻿"""app/bank_panel.py
+"""app/bank_panel.py
 Bank admin panel for SamriddhiAI.
 
 Run from SamriddhiAI/ root:
@@ -137,10 +137,12 @@ def render_sidebar(model_input, life_stage):
 
     elif mode == "By customer ID":
         customer_id = st.sidebar.text_input(
-            "Customer ID", value="CUST000005",
+            "Customer ID",
             placeholder="e.g. CUST000005",
             key="bank_pick_id",
         )
+        if not customer_id:
+            customer_id = "CUST000005"
 
     else:
         segment = st.sidebar.selectbox(
