@@ -25,6 +25,12 @@ from app.shared.style import (
 
 CHATBOT_URL = "http://localhost:8503"
 
+import os as _os
+
+def _is_cloud():
+    """True when running on Streamlit Community Cloud."""
+    return _os.environ.get("HOSTNAME", "").startswith("streamlit-")
+
 st.set_page_config(
     page_title="SamriddhiAI - My Banking",
     layout="wide",
@@ -62,8 +68,9 @@ CATEGORY_LABELS = {
     "suspicious": "Unusual transfer",
 }
 
+
 def _chatbot_url_for(customer_id):
-    return f"http://localhost:8503/?customer_id={customer_id}"
+    return f"http://127.0.0.1:8503/?customer_id={customer_id}"
 
 # ------------------------------------------------------------------
 # Altair chart helpers — clean light background, our palette
@@ -477,7 +484,10 @@ def main():
 
     st.markdown(viewing_label(customer_id), unsafe_allow_html=True)
 
-    tabs = st.tabs(["My account", "My money", "For you", "Chat"])
+    if _is_cloud():
+        tabs = st.tabs(["My account", "My money", "For you"])
+    else:
+        tabs = st.tabs(["My account", "My money", "For you", "Chat"])
 
     with tabs[0]:
         render_my_account(row, life_row, stress_row)
@@ -485,8 +495,9 @@ def main():
         render_my_money(customer_id, row, stress_row)
     with tabs[2]:
         render_for_you(bundle, row, stress_row)
-    with tabs[3]:
-        render_chat_tab(customer_id)
+    if not _is_cloud():
+        with tabs[3]:
+            render_chat_tab(customer_id)
 
 
 if __name__ == "__main__":
