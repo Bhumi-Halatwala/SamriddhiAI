@@ -1,0 +1,15 @@
+﻿# SamriddhiAI Streamlit theme.
+
+[theme]
+base = "light"
+primaryColor = "#2A7F6F"
+backgroundColor = "#FBF9F4"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#16202E"
+font = "sans serif"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

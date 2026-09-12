@@ -7,114 +7,225 @@ Run from SamriddhiAI/ root:
 
 from pathlib import Path
 import sys
-import numpy as np
 import pandas as pd
 import streamlit as st
+import altair as alt
 
 sys.path.insert(0, str(Path.cwd()))
 
 from app.shared.data_loader import (
     load_model_input, load_stress, load_life_stage,
-    load_txn_snapshot, load_recommender, get_row,
+    load_recommender, get_row,
 )
-from app.shared.formatting import money, pct, explain_interest, life_stage_name
+from app.shared.formatting import money, pct
+from app.shared.style import (
+    apply_brand_style, header, viewing_label, metric_card, reco_card,
+    info_banner, hr, SHIELD_SVG,
+)
 
 st.set_page_config(
     page_title="SamriddhiAI - My Banking",
-    page_icon="💚",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+apply_brand_style(mode="user")
 
 
 PRODUCT_NAMES = {
     "personal": "Personal Loan",
     "home":     "Home Loan",
-    "auto":     "Car Loan",
+    "auto":     "Auto Loan",
     "mortgage": "Mortgage Top-Up",
 }
 
 PRODUCT_WHY = {
-    "personal": "You can use this for weddings, education, medical needs, or any personal goal.",
-    "home":     "If you are planning to buy a house, this loan can spread the cost over many years.",
-    "auto":     "For buying a new car or two-wheeler, with predictable monthly payments.",
-    "mortgage": "If you already own a home, this can help you unlock some of its value.",
+    "personal": "Suited for planned expenses such as education, medical needs, "
+                "or a wedding, with predictable monthly repayments.",
+    "home":     "Designed for a home purchase, spreading the cost over many "
+                "years at a rate fixed at the time of sanction.",
+    "auto":     "For a new vehicle, with repayment terms typically between "
+                "three and seven years.",
+    "mortgage": "Lets you borrow against a property you already own, without "
+                "selling it.",
+}
+
+CATEGORY_LABELS = {
+    "salary": "Salary received",
+    "business_income": "Business income",
+    "emi": "EMI payment",
+    "rent": "Rent paid",
+    "discretionary": "Everyday spending",
+    "bounce": "Payment failed",
+    "suspicious": "Unusual transfer",
 }
 
 
+# ------------------------------------------------------------------
+# Altair chart helpers — clean light background, our palette
+# ------------------------------------------------------------------
+def make_area_chart(df: pd.DataFrame, x: str, y_cols: list, color_map: dict,
+                    height: int = 280) -> alt.Chart:
+    """Area chart from a wide DataFrame."""
+    melted = df.reset_index().melt(id_vars=x, value_vars=y_cols,
+                                   var_name="series", value_name="value")
+    chart = (
+        alt.Chart(melted)
+        .mark_area(opacity=0.35, interpolate="monotone", line=True)
+        .encode(
+            x=alt.X(f"{x}:T", title=None, axis=alt.Axis(format="%b %Y")),
+            y=alt.Y("value:Q", title=None),
+            color=alt.Color("series:N",
+                            scale=alt.Scale(domain=list(color_map.keys()),
+                                            range=list(color_map.values())),
+                            legend=alt.Legend(title=None, orient="top")),
+            tooltip=[alt.Tooltip(f"{x}:T", title="Month"),
+                     alt.Tooltip("series:N", title="Series"),
+                     alt.Tooltip("value:Q", title="Amount", format=",.0f")],
+        )
+        .properties(height=height, background="white")
+        .configure_view(stroke=None)
+        .configure_axis(grid=True, gridColor="#EEF0F3", domain=False, tickColor="#CCCCCC",
+                        labelColor="#5B6675", titleColor="#5B6675")
+    )
+    return chart
+
+
+def make_bar_chart(df: pd.DataFrame, cat_col: str, val_col: str,
+                   color: str = "#2A7F6F", height: int = 260) -> alt.Chart:
+    chart = (
+        alt.Chart(df)
+        .mark_bar(color=color, cornerRadius=2)
+        .encode(
+            x=alt.X(f"{val_col}:Q", title=None),
+            y=alt.Y(f"{cat_col}:N", title=None, sort="-x"),
+            tooltip=[alt.Tooltip(f"{cat_col}:N", title="Category"),
+                     alt.Tooltip(f"{val_col}:Q", title="Average", format=",.0f")],
+        )
+        .properties(height=height, background="white")
+        .configure_view(stroke=None)
+        .configure_axis(grid=True, gridColor="#EEF0F3", domain=False, tickColor="#CCCCCC",
+                        labelColor="#5B6675", titleColor="#5B6675")
+    )
+    return chart
+
+
+def render_header():
+    st.markdown(
+        header(
+            "SamriddhiAI",
+            "Banking made simple",
+            "Customer App",
+        ),
+        unsafe_allow_html=True,
+    )
+
+
 def render_sidebar():
-    st.sidebar.title("💚 SamriddhiAI")
-    st.sidebar.caption("Your personal banking assistant")
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**Sign in**")
+    st.sidebar.markdown("### Welcome")
 
     quick = st.sidebar.radio(
-        "Quick demo login",
-        ["Safe customer", "Stressed customer", "Enter my own ID"],
+        "Sign in",
+        ["Healthy profile", "Stressed profile", "Enter my customer ID"],
         key="user_panel_login_radio",
     )
 
-    if quick == "Safe customer":
+    if quick == "Healthy profile":
         customer_id = "CUST000005"
-        st.sidebar.caption("Demo: a customer with healthy finances.")
-    elif quick == "Stressed customer":
+    elif quick == "Stressed profile":
         customer_id = "CUST000001"
-        st.sidebar.caption("Demo: a customer facing financial pressure.")
     else:
-        customer_id = st.sidebar.text_input("Customer ID", "CUST000005")
+        customer_id = st.sidebar.text_input(
+            "Customer ID", value="CUST000005",
+            placeholder="e.g. CUST000005",
+            key="user_panel_id_input",
+        )
 
     st.sidebar.markdown("---")
-    st.sidebar.caption("Prototype · HackOut 2026 · Team Avengers")
+    st.sidebar.caption("SamriddhiAI · HackOut 2026 · Team Avengers")
     return customer_id
 
 
+# ------------------------------------------------------------------
+# Tab 1 — My account
+# ------------------------------------------------------------------
 def render_my_account(row, life_row, stress_row):
-    st.header("👤 My Account")
-    st.caption("A quick look at your banking profile.")
+    st.subheader("My account")
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Monthly income", money(row["monthly_declared_income"]))
-    c2.metric("Monthly savings rate", pct(row["savings_rate_mean_7"]))
-    c3.metric("EMI burden", pct(row["emi_to_income_mean_7"]))
+    with c1:
+        st.markdown(metric_card("Monthly income",
+                                money(row["monthly_declared_income"]),
+                                "as you declared to us"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(metric_card("You save",
+                                pct(row["savings_rate_mean_7"]),
+                                "share of monthly income"), unsafe_allow_html=True)
+    with c3:
+        st.markdown(metric_card("EMI payments",
+                                pct(row["emi_to_income_mean_7"]),
+                                "share of monthly income"), unsafe_allow_html=True)
 
     c4, c5, c6 = st.columns(3)
-    c4.metric("Existing loans", int(row["existing_loan_count"]))
-    c5.metric("Years with us", f"{row['relationship_tenure_years']:.1f}")
-    c6.metric("Age", int(row["age"]))
-
-    st.markdown("---")
-    st.subheader("Where you are in life")
-    if life_row is not None:
-        st.info(f"**{life_stage_name(life_row['life_stage'])}**")
+    with c4:
+        st.markdown(metric_card("Active loans",
+                                str(int(row["existing_loan_count"])),
+                                "currently open"), unsafe_allow_html=True)
+    with c5:
+        st.markdown(metric_card("Banking tenure",
+                                f"{row['relationship_tenure_years']:.1f} yrs",
+                                "years with us"), unsafe_allow_html=True)
+    with c6:
+        st.markdown(metric_card("Age", str(int(row["age"])),
+                                "as on file"), unsafe_allow_html=True)
 
     if stress_row is not None and stress_row["stress_level"] == "high":
-        st.warning(
-            "💬 We noticed some months have been tighter than usual. "
-            "If you would like to talk to someone about repayment options, "
-            "we are here to help. No pressure, no pitches."
+        st.markdown(hr(), unsafe_allow_html=True)
+        st.markdown(
+            info_banner(
+                "We are here if you need support",
+                "Some recent months look tighter than usual. If you would like "
+                "to talk through repayment options, we can help. No pressure, "
+                "no sales.",
+                icon=SHIELD_SVG,
+            ),
+            unsafe_allow_html=True,
         )
 
 
-def render_my_money(customer_id, row):
-    st.header("💸 My Money")
-    st.caption("Understand where your money goes each month.")
+# ------------------------------------------------------------------
+# Tab 2 — My money
+# ------------------------------------------------------------------
+def render_my_money(customer_id, row, stress_row):
+    st.subheader("My money")
+    st.caption("A clear view of how money moves through your account each month.")
 
     monthly = pd.read_parquet("data/processed/txn_monthly.parquet")
     cust_monthly = monthly[monthly["customer_id"] == customer_id].copy()
     cust_monthly["month"] = pd.to_datetime(cust_monthly["month"])
-    cust_monthly = cust_monthly.sort_values("month")
+    cust_monthly = cust_monthly.sort_values("month").set_index("month")
 
     if len(cust_monthly) == 0:
         st.info("No transaction history available.")
         return
 
-    st.subheader("Money in vs money out (monthly)")
-    chart_data = cust_monthly[["month", "credit_sum", "debit_sum"]].rename(
-        columns={"month": "Month", "credit_sum": "Money in", "debit_sum": "Money out"}
-    ).set_index("Month")
-    st.line_chart(chart_data, height=260)
+    stressed = stress_row is not None and stress_row["stress_level"] == "high"
 
-    st.subheader("Where your money goes (average per month)")
+    st.markdown("#### Money in and money out")
+    money_df = cust_monthly[["credit_sum", "debit_sum"]].rename(
+        columns={"credit_sum": "Money in", "debit_sum": "Money out"}
+    )
+    st.altair_chart(
+        make_area_chart(
+            money_df,
+            x="month",
+            y_cols=["Money in", "Money out"],
+            color_map={"Money in": "#2A7F6F", "Money out": "#A84434"},
+        ),
+        use_container_width=True,
+    )
+
+    st.markdown("#### Where your money goes")
     cat_cols = {
         "emi_sum": "EMI",
         "rent_sum": "Rent",
@@ -129,59 +240,134 @@ def render_my_money(customer_id, row):
         cat_df = pd.DataFrame({
             "Category": list(cat_avgs.keys()),
             "Average": list(cat_avgs.values()),
-        }).set_index("Category")
-        st.bar_chart(cat_df, height=260)
+        })
+        st.altair_chart(
+            make_bar_chart(cat_df, cat_col="Category", val_col="Average",
+                           color="#2A7F6F", height=260),
+            use_container_width=True,
+        )
 
-    st.subheader("Your savings trend")
-    if "savings_rate" in cust_monthly.columns:
-        sav = cust_monthly[["month", "savings_rate"]].rename(
-            columns={"month": "Month", "savings_rate": "Savings rate"}
-        ).set_index("Month")
-        st.line_chart(sav, height=220)
+    st.markdown("#### Savings trend")
+    sav_df = cust_monthly[["savings_rate"]].rename(
+        columns={"savings_rate": "Savings rate"}
+    )
+    st.altair_chart(
+        make_area_chart(
+            sav_df,
+            x="month",
+            y_cols=["Savings rate"],
+            color_map={"Savings rate": "#2A7F6F"},
+            height=240,
+        ),
+        use_container_width=True,
+    )
 
-    st.markdown("---")
-    st.subheader("What we noticed")
-    observations = []
+    st.markdown(hr(), unsafe_allow_html=True)
 
-    avg_savings = float(cust_monthly["savings_rate"].mean())
-    if avg_savings > 0.3:
-        observations.append("You save more than 30% of your income on average - excellent.")
-    elif avg_savings > 0.1:
-        observations.append("You save a steady amount every month. Keep it up.")
-    elif avg_savings >= 0:
-        observations.append("Your savings are thin. Try setting aside a small amount each month.")
+    if stressed:
+        st.markdown("#### What these months tell us")
+        observations = []
+        avg_savings = float(cust_monthly["savings_rate"].mean())
+        if avg_savings < 0:
+            observations.append(
+                "In some months, spending has been higher than income. "
+                "This is common, and it can be worked through."
+            )
+        elif avg_savings < 0.1:
+            observations.append(
+                "Savings have been thin in recent months. "
+                "A small regular amount can help build a buffer."
+            )
+        emi_burden = float(row["emi_to_income_mean_7"])
+        if emi_burden > 0.4:
+            observations.append(
+                "EMIs currently take up a large share of monthly income. "
+                "Restructuring can spread this over a longer period."
+            )
+        observations.append(
+            "Setting aside a fixed amount every month, however small, "
+            "builds a buffer over time."
+        )
+        for obs in observations:
+            st.markdown(f"- {obs}")
     else:
-        observations.append("Some months, you spend more than you earn. We can help you plan.")
+        st.markdown("#### What these months tell us")
+        observations = []
+        avg_savings = float(cust_monthly["savings_rate"].mean())
+        if avg_savings > 0.3:
+            observations.append(
+                "You consistently save more than 30% of your income. "
+                "That is a healthy buffer."
+            )
+        elif avg_savings > 0.1:
+            observations.append(
+                "You save a steady amount each month. "
+                "This puts you in a comfortable position."
+            )
+        elif avg_savings >= 0:
+            observations.append(
+                "Savings have been modest. Small regular transfers can "
+                "add up over a year."
+            )
+        emi_burden = float(row["emi_to_income_mean_7"])
+        if emi_burden < 0.2:
+            observations.append(
+                "Your EMI burden is low, which leaves room in your budget "
+                "for planned goals."
+            )
+        elif emi_burden < 0.4:
+            observations.append(
+                "Your EMIs are a moderate share of income. "
+                "Comfortable, and worth watching over time."
+            )
+        twelve_month = float(cust_monthly["net_flow"].mean()) * 12
+        if twelve_month > 0:
+            observations.append(
+                f"If you keep saving at this pace, you could set aside "
+                f"{money(twelve_month)} over the next twelve months."
+            )
+        for obs in observations:
+            st.markdown(f"- {obs}")
 
-    for prod_key, label in [("home", "home"), ("auto", "car"), ("personal", "personal")]:
-        if row.get(f"interest_{prod_key}", 0) > 0:
-            observations.append(f"You recently checked out {label} loans.")
+    st.markdown(hr(), unsafe_allow_html=True)
+    st.markdown("#### Recent transactions")
 
-    emi_burden = float(row["emi_to_income_mean_7"])
-    if emi_burden > 0.4:
-        observations.append("Your EMIs take up a large share of your income - over 40%.")
-    elif emi_burden > 0.2:
-        observations.append("Your EMIs are a moderate share of your income.")
+    ledger = pd.read_parquet("data/interim/transaction_ledger.parquet")
+    cust_txns = ledger[ledger["customer_id"] == customer_id].copy()
+    cust_txns["date"] = pd.to_datetime(cust_txns["date"])
+    cust_txns = cust_txns.sort_values("date", ascending=False).head(10)
 
-    if not observations:
-        observations.append("Your finances look stable. Nothing urgent stands out.")
+    if len(cust_txns) == 0:
+        st.caption("No transactions on file.")
+    else:
+        for _, t in cust_txns.iterrows():
+            cat = CATEGORY_LABELS.get(t["true_category"], t["true_category"])
+            direction = "in" if t["direction"] == "credit" else "out"
+            amount = money(abs(t["amount"]))
+            date_str = t["date"].strftime("%d %b %Y")
+            st.markdown(f"**{date_str}** · {cat} · {amount} {direction}")
 
-    for obs in observations:
-        st.markdown(f"- {obs}")
 
-
+# ------------------------------------------------------------------
+# Tab 3 — For you
+# ------------------------------------------------------------------
 def render_for_you(bundle, row, stress_row):
-    st.header("✨ For You")
-    st.caption("Personalized suggestions based on your profile and activity.")
+    st.subheader("For you")
+    st.caption("Suggestions based on your profile and recent activity.")
 
     if stress_row is not None and stress_row["stress_level"] == "high":
-        st.info(
-            "We want to help you first. Before we talk about new products, "
-            "let us look at your current commitments together."
+        st.markdown(
+            info_banner(
+                "Let us look at your current commitments first",
+                "Before we discuss new products, it may help to review your "
+                "existing repayments together.",
+                icon=SHIELD_SVG,
+            ),
+            unsafe_allow_html=True,
         )
-        st.markdown("### Things that might help right now")
+        st.markdown("#### Support available now")
         st.markdown("- **Talk to a financial advisor** - free, no obligation")
-        st.markdown("- **Restructure your EMIs** - we can spread payments over a longer time")
+        st.markdown("- **Restructure your EMIs** - spread repayments over a longer period")
         st.markdown("- **Savings plan review** - a small buffer goes a long way")
         return
 
@@ -190,51 +376,65 @@ def render_for_you(bundle, row, stress_row):
     p_apply = float(bundle["head_a"].predict_proba(x)[0, 1])
     p_product = bundle["head_b"].predict_proba(x)[0]
     products = bundle["head_b"].classes_
-    scores = sorted(
+    scored = sorted(
         [(p, p_apply * pr) for p, pr in zip(products, p_product)],
         key=lambda t: -t[1],
     )
-    top2 = scores[:2]
+    scored = [(p, s) for p, s in scored if s > 0.001][:2]
 
-    st.success(f"**We found {len(top2)} products that may suit you.**")
+    if not scored:
+        st.info("Nothing specific to suggest right now. Check back after your next month.")
+        return
 
-    for i, (prod, score) in enumerate(top2, 1):
+    st.markdown("#### Products you may be eligible for")
+    for i, (prod, score) in enumerate(scored, 1):
         name = PRODUCT_NAMES.get(prod, prod.title())
-        st.markdown(f"### {i}. {name}")
-        st.markdown(PRODUCT_WHY.get(prod, ""))
-        if i == 1:
-            st.caption("This one seems like the best match for you right now.")
-        st.markdown("---")
+        st.markdown(
+            reco_card(
+                f"{i}. {name}",
+                PRODUCT_WHY.get(prod, ""),
+            ),
+            unsafe_allow_html=True,
+        )
 
-    st.subheader("Why we think this")
+    st.markdown(hr(), unsafe_allow_html=True)
+    st.markdown("#### Why this might suit you")
     reasons = []
     if row.get("savings_rate_mean_7", 0) > 0.3:
         reasons.append("You save regularly, so repayments would fit comfortably.")
     if row.get("salary_months_present", 0) >= 12:
         reasons.append("You receive a steady salary each month.")
     if row.get("has_any_existing_loan", 0) == 0:
-        reasons.append("You have no existing loans, which keeps things simple.")
-    for prod_key in PRODUCT_NAMES:
-        if row.get(f"interest_{prod_key}", 0) > 0:
-            reasons.append(f"You recently viewed {explain_interest(prod_key)}.")
+        reasons.append("You have no existing loans, keeping things simple.")
     if not reasons:
-        reasons.append("This is a general suggestion based on your profile.")
-
-    for r in reasons[:5]:
+        reasons.append("This suggestion is based on your overall profile.")
+    for r in reasons[:4]:
         st.markdown(f"- {r}")
 
+    emi_monthly = float(row.get("emi_sum_mean_7", 0))
+    if emi_monthly > 0:
+        st.markdown(hr(), unsafe_allow_html=True)
+        st.markdown("#### Upcoming EMI payments")
+        st.caption("Based on your recent EMI pattern, here is what to expect.")
+        for i in range(1, 4):
+            st.markdown(f"- Month {i}: approximately **{money(emi_monthly)}**")
+
     st.caption(
-        "These suggestions are meant to be helpful, not pushy. "
+        "These suggestions are here to help you plan, not to push a product. "
         "You are always free to say no."
     )
 
 
+# ------------------------------------------------------------------
+# Main
+# ------------------------------------------------------------------
 def main():
     model_input = load_model_input()
     stress = load_stress()
     life_stage = load_life_stage()
     bundle = load_recommender()
 
+    render_header()
     customer_id = render_sidebar()
 
     row = get_row(model_input, customer_id)
@@ -245,15 +445,14 @@ def main():
     stress_row = get_row(stress, customer_id)
     life_row = get_row(life_stage, customer_id)
 
-    st.title(f"Hi, {customer_id}")
-    st.caption("Welcome back. Here is a quick look at your money.")
+    st.markdown(viewing_label(customer_id), unsafe_allow_html=True)
 
-    tabs = st.tabs(["👤 My Account", "💸 My Money", "✨ For You"])
+    tabs = st.tabs(["My account", "My money", "For you"])
 
     with tabs[0]:
         render_my_account(row, life_row, stress_row)
     with tabs[1]:
-        render_my_money(customer_id, row)
+        render_my_money(customer_id, row, stress_row)
     with tabs[2]:
         render_for_you(bundle, row, stress_row)
 
