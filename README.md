@@ -5,6 +5,10 @@
 > in their own language.
 
 **Team:** Avengers · **Event:** HackOut 2026 · **Track:** Fintech / AI for Bharat
+--
+**USER DASHBOARD:** `https://samriddhiai-m8fcqohhx33kcikctpahz4.streamlit.app/`
+
+**BANK DASHBOARD** `https://samriddhiai-fwuuxrnfp8t6qqgrfbejvj.streamlit.app/`
 
 ---
 
@@ -56,7 +60,7 @@ app engagement, and life-stage signals, then:
 - **Detects early warning signals** of financial stress and behavioural anomaly,
   and triggers supportive rather than punitive interventions.
 - **Speaks to customers** through a multilingual chatbot that works over text
-  *and* voice, in English, Hindi, Tamil, Marathi, and Bengali.
+  *and* voice, in English, and many other regional languages.
 
 We built two complementary interfaces:
 
@@ -72,60 +76,98 @@ advisory, EMI restructuring, or savings support.
 ---
 
 ## System architecture
-
-```
-                    ┌─────────────────────────────────────────────┐
-                    │              DATA LAYER                     │
-                    │  Transactions · Behaviour · Profile · Labels│
-                    └──────────────────────┬──────────────────────┘
-                                           │
-                    ┌──────────────────────▼──────────────────────┐
-                    │        FEATURE ENGINEERING PIPELINE          │
-                    │  178 features per customer across:            │
-                    │   • Profile (age, income, occupation, tier)   │
-                    │   • Transactions (7-month rolling aggregates) │
-                    │   • Behaviour (logins, calculator, sessions)  │
-                    │   • Life stage (rule-based segmentation)      │
-                    │   • Stress score (composite z-score)          │
-                    └──────────────────────┬──────────────────────┘
-                                           │
-                    ┌──────────────────────▼──────────────────────┐
-                    │              AI ENGINE                       │
-                    │                                              │
-                    │  ┌──────────────┐  ┌──────────────────────┐  │
-                    │  │ Narration    │  │  Recommender         │  │
-                    │  │ Classifier   │  │  • Head A: propensity│  │
-                    │  │ (LightGBM)   │  │  • Head B: product   │  │
-                    │  └──────────────┘  └──────────────────────┘  │
-                    │                                              │
-                    │  ┌──────────────┐  ┌──────────────────────┐  │
-                    │  │ Anomaly      │  │  Chatbot             │  │
-                    │  │ Detector     │  │  • Intent routing    │  │
-                    │  │ (Isolation   │  │  • 5 languages       │  │
-                    │  │  Forest +    │  │  • Text + Voice      │  │
-                    │  │  rule flags) │  │  • Guardrail-aware   │  │
-                    │  └──────────────┘  └──────────────────────┘  │
-                    └──────────────────────┬──────────────────────┘
-                                           │
-                    ┌──────────────────────▼──────────────────────┐
-                    │            GUARDRAIL LAYER                   │
-                    │  • Suppress loan offers for stressed users    │
-                    │  • Empathetic interventions over flags        │
-                    │  • Bias audit across segments                 │
-                    └──────────────────────┬──────────────────────┘
-                                           │
-                    ┌──────────────────────┴──────────────────────┐
-                    │                                              │
-                    ▼                                              ▼
-        ┌──────────────────────┐                    ┌──────────────────────┐
-        │  BANK ADMIN PANEL    │                    │   CUSTOMER APP       │
-        │  (port 8501)         │                    │   (port 8502)        │
-        │  • Snapshot          │                    │  • My Account        │
-        │  • Next best action  │                    │  • My Money          │
-        │  • Risk & alerts     │                    │  • For You           │
-        └──────────────────────┘                    └──────────────────────┘
 ```
 
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            DATA LAYER                                   │
+│   customer_master · transaction_ledger · behavioral_log · labels        │
+│   5,000 customers · 1.03M transactions (18 months) · 489K events        │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼───────────────────────────────────────┐
+│                    FEATURE ENGINEERING PIPELINE                         │
+│                    178 features per customer                            │
+│                                                                         │
+│   ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐      │
+│   │ Profile (23)     │  │ Transactions (97)│  │ Behaviour (48)   │      │
+│   │ • Age, income    │  │ • 7-month rolling│  │ • Logins         │      │
+│   │ • Loan flags     │  │ • 6 aggregations │  │ • Calculator use │      │
+│   │ • City tier      │  │ • Regularity     │  │ • Sessions       │      │
+│   └──────────────────┘  └──────────────────┘  └──────────────────┘      │
+│                                                                         │
+│   ┌──────────────────┐  ┌──────────────────┐                            │
+│   │ Life Stage (12)  │  │ Stress Score (17)│                            │
+│   │ • 8 segments     │  │ • Composite      │                            │
+│   │ • Rule-based     │  │ • Z-weighted     │                            │
+│   └──────────────────┘  └──────────────────┘                            │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼───────────────────────────────────────┐
+│                            AI ENGINE                                    │
+│                                                                         │
+│   ┌────────────────────┐   ┌────────────────────────────────────┐       │
+│   │ NARRATION PARSER   │   │       RECOMMENDER                  │       │
+│   │                    │   │                                    │       │
+│   │ • TF-IDF + LightGBM│   │  Head A: P(apply)      AUC = 0.61  │       │
+│   │ • 7 categories     │   │  Head B: P(product)    F1  = 0.99  │       │
+│   │ • Rule fallback    │   │  5-feature variant     AUC = 0.605 │       │
+│   │ • Adversarial F1   │   │  SHAP-based reason codes           │       │
+│   │   drops 1.00 → 0.43│   │                                    │       │
+│   └────────────────────┘   └────────────────────────────────────┘       │
+│                                                                         │
+│   ┌────────────────────┐   ┌────────────────────────────────────┐       │
+│   │  ANOMALY DETECTOR  │   │       CONVERSATIONAL AI            │       │
+│   │                    │   │                                    │       │
+│   │ • Isolation Forest │   │ • 12 Indian languages              │       │
+│   │   (per-customer    │   │ • Text + Speech (ASR + TTS)        │       │
+│   │    z-scores)       │   │ • Intent-based routing             │       │
+│   │ • Rule-based flags │   │ • Data-aware responses             │       │
+│   │ • F1 = 0.48 on     │   │ • Guardrail: refuses loans for     │       │
+│   │   window_dressing  │   │   stressed customers               │       │
+│   │ • 3-tier alerts    │   │ • Reads from live customer data    │       │
+│   └────────────────────┘   └────────────────────────────────────┘       │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+┌─────────────────────────────────▼───────────────────────────────────────┐
+│                        GUARDRAIL LAYER                                  │
+│                    Shared policy module (src/chatbot/policy.py)         │
+│                                                                         │
+│   • Suppress all loan offers when stress_level = high                   │
+│   • Enforced in BOTH the recommender and the chatbot                    │
+│   • Empathetic interventions instead of punitive flags                  │
+│   • Deterministic reason codes on every recommendation                  │
+│   • Bias audit across city tier, occupation, age band                   │
+└─────────────────────────────────┬───────────────────────────────────────┘
+                                  │
+        ┌─────────────────────────┴─────────────────────────┐
+        │                                                   │
+        ▼                                                   ▼
+┌──────────────────────────────┐              ┌──────────────────────────────┐
+│      BANK CONSOLE            │              │       CUSTOMER APP           │
+│      Port 8501               │              │       Port 8502              │
+│                              │              │                              │
+│ • Snapshot (profile/credit)  │              │ • My account                 │
+│ • Next best action           │              │ • My money (charts)          │
+│ • Risk and alerts            │              │ • For you                    │
+│                              │              │ • Chat (embedded)            │
+│ Audience: relationship       │              │                              │
+│ managers, branch staff       │              │ Audience: end customers      │
+└──────────────────────────────┘              └──────────────┬───────────────┘
+                                                             │
+                                                             │ iframe
+                                                             ▼
+                                              ┌──────────────────────────────┐
+                                              │   CHATBOT SERVICE            │
+                                              │   Port 8503                  │
+                                              │                              │
+                                              │ • MuRIL intent classifier    │
+                                              │ • IndicConformer ASR         │
+                                              │ • IndicF5 TTS                │
+                                              │ • Gemini zero-shot fallback  │
+                                              │ • Reads SamriddhiAI parquets │
+                                              └──────────────────────────────┘
+
+```
 ---
 
 ## What we built
@@ -173,7 +215,7 @@ Performance on validation:
 
 ### 4. Conversational AI (chatbot)
 
-- Five languages: English, हिंदी, தமிழ், मराठी, বাংলা
+- 10+ regional language languages implemented
 - **Text + speech:** users can type or speak; the bot can respond with text or voice
 - **Deterministic intent routing** (rule-based for demo reliability)
 - **Guardrail-aware:** if the customer is stressed, the bot refuses to discuss
@@ -184,7 +226,7 @@ Performance on validation:
 | Interface | Audience | Tabs |
 |---|---|---|
 | Bank admin panel | Relationship managers | Snapshot · Next best action · Risk & alerts |
-| Customer app | End customers | My Account · My Money · For You |
+| Customer app | End customers | My Account · My Money · For You · Chat |
 
 All panels are built in Streamlit and run locally with no cloud dependencies.
 
@@ -306,9 +348,36 @@ We would rather document these than hide them.
 
 ```
 SamriddhiAI/
+│
+├── app/                              # Streamlit front-ends
+│   ├── __init__.py
+│   ├── bank_panel.py                 # Bank console (port 8501) — 3 tabs
+│   ├── user_panel.py                 # Customer app (port 8502) — 4 tabs (3 on cloud)
+│   └── shared/
+│       ├── __init__.py
+│       ├── data_loader.py            # Cached parquet + model loaders
+│       ├── formatting.py             # Plain-English label helpers
+│       └── style.py                  # Brand CSS (bank / user modes)
+│
+├── chatbot/                          # Teammate's multilingual chatbot (companion service)
+│   ├── chatbot_app.py                # Streamlit app — runs on port 8503
+│   ├── chatbot_engine.py             # Intent dispatch + response generation
+│   ├── ai_intent.py                  # Gemini-based intent classifier
+│   ├── data_manager.py               # Loads customer profile from CSVs
+│   ├── voice_ai.py                   # IndicConformer ASR + IndicF5 TTS
+│   ├── utils.py
+│   ├── preprocess.py
+│   ├── eda.py
+│   ├── assets/
+│   │   └── style.css                 # Chatbot-specific styling
+│   ├── data/                         # Copy of customer_master.csv + transaction_ledger.csv
+│   └── .streamlit/
+│       └── config.toml               # Chatbot theme (cream, matches user panel)
+│
 ├── data/
-│   ├── raw/                          # Original CSVs (not committed)
-│   ├── interim/                      # Cleaned parquets (Phase 1)
+│   ├── raw/                          # Original CSVs (not committed except customer_master)
+│   ├── interim/                      # Cleaned parquets
+│   │   └── transaction_ledger.parquet
 │   └── processed/                    # Feature tables + model inputs
 │       ├── profile_features.parquet
 │       ├── txn_monthly.parquet
@@ -321,12 +390,15 @@ SamriddhiAI/
 │       └── labels_joined.parquet
 │
 ├── src/
+│   ├── __init__.py
 │   ├── data/                         # Loading, validation, EDA
+│   │   ├── __init__.py
 │   │   ├── load.py
 │   │   ├── eda.py
 │   │   ├── check_setup.py
 │   │   └── diagnose_label_window.py
 │   ├── features/                     # Feature engineering
+│   │   ├── __init__.py
 │   │   ├── profile_features.py
 │   │   ├── txn_features.py
 │   │   ├── behavior_features.py
@@ -334,24 +406,19 @@ SamriddhiAI/
 │   │   ├── stress.py
 │   │   └── build_model_input.py
 │   ├── models/                       # Model training + inference
+│   │   ├── __init__.py
 │   │   ├── narration_clf.py
 │   │   ├── predict_narration.py
 │   │   ├── adversarial_test.py
 │   │   ├── recommender.py
 │   │   └── anomaly.py
-│   └── chatbot/                      # Conversational AI
-│       ├── languages.py
-│       ├── intents.py
-│       ├── router.py
-│       ├── demo.py
-│       └── [speech.py]               # Text-to-speech & speech-to-text
-│
-├── app/                              # Streamlit front-ends
-│   ├── bank_panel.py                 # Bank admin interface (port 8501)
-│   ├── user_panel.py                 # Customer interface (port 8502)
-│   └── shared/
-│       ├── data_loader.py
-│       └── formatting.py
+│   └── chatbot/                      # Rule-based chatbot + shared policy
+│       ├── __init__.py
+│       ├── languages.py              # 5-language string templates (prototype)
+│       ├── intents.py                # Regex-based intent detector
+│       ├── router.py                 # Rule-based session manager
+│       ├── demo.py                   # Scripted demo of the rule-based bot
+│       └── policy.py                 # Shared guardrail policy (used by recommender + chatbot)
 │
 ├── models/                           # Saved model artifacts
 │   ├── narration_clf.pkl
@@ -359,25 +426,29 @@ SamriddhiAI/
 │   └── anomaly.pkl
 │
 ├── outputs/
-│   ├── figures/                      # All plots
-│   └── reports/                      # Phase-by-phase reports
+│   ├── figures/                      # All plots (10 from EDA + model evaluation)
+│   └── reports/                      # Phase-by-phase reports (phase1 → phase6)
 │
-├── tests/                            # Pytest test suite
-│   ├── test_load.py
-│   ├── test_narration.py
-│   ├── test_features.py
-│   ├── test_chatbot.py
-│   └── [test_recommender.py]
+├── tests/
+│   ├── __init__.py
+│   ├── test_load.py                  # Phase 1 (11 tests)
+│   ├── test_narration.py             # Phase 2 (13 tests)
+│   ├── test_features.py              # Phase 3 (30 tests)
+│   └── test_chatbot.py               # Phase 6 (12 tests)
 │
 ├── docs/                             # Model card, ethics, compliance
 │   ├── model_card.md
 │   ├── ethics_dpdp.md
 │   └── rbi_compliance.md
 │
+├── .streamlit/
+│   └── config.toml                   # Base theme (cream, green, light mode)
+│
+├── run_all.py                        # Launcher: starts bank + user panels
 ├── requirements.txt
+├── .gitignore
 └── README.md
 ```
-
 ---
 
 ## How to run
@@ -434,25 +505,10 @@ py -3.11 -m src.models.recommender
 py -3.11 -m src.models.anomaly
 ```
 
-### Run the demo apps
 
-Open two terminals:
-
-```bash
-# Terminal 1 — Bank admin panel
-py -3.11 -m streamlit run app/bank_panel.py --server.port 8501
-
-# Terminal 2 — Customer app
-py -3.11 -m streamlit run app/user_panel.py --server.port 8502
-```
-
-Then open:
-- Bank panel: [http://localhost:8501](http://localhost:8501)
-- Customer app: [http://localhost:8502](http://localhost:8502)
-
-**Demo tip:** try `CUST000005` (healthy finances — will see product offers) and
+**Demo tip:** try `CUST000005` (healthy finances — will see product offers),
 `CUST000001` (financially stressed — will see supportive messaging and no loan
-offers).
+offers) and `CUST000046` (Investigate Further — Might be Fraud, based on transaction history).
 
 ### Run tests
 
@@ -466,8 +522,8 @@ py -3.11 -m pytest tests/ -v
 
 **Team Avengers** — HackOut 2026
 
-| # | Name | Role | ID |
-|---|---|---|---|
+| # | Name | ID |
+|---|---|---|
 | 1 | Devanshi Vora | 202618013 |
 | 2 | Khushboo Dharmani | 202618020 |
 | 3 | Bhumi Halatwala | 202618038 |
