@@ -1,4 +1,4 @@
-﻿"""app/shared/style.py
+"""app/shared/style.py
 Panel-specific CSS layered on top of Streamlit's base theme.
 
 Two visual identities:

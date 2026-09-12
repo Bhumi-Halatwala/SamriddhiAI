@@ -1,4 +1,4 @@
-﻿"""app/shared/formatting.py
+"""app/shared/formatting.py
 Plain-English helpers for bank staff UI.
 """
 

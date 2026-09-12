@@ -1,4 +1,4 @@
-﻿"""app/shared/data_loader.py"""
+"""app/shared/data_loader.py"""
 from pathlib import Path
 import pandas as pd
 import joblib
