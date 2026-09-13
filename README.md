@@ -6,9 +6,9 @@
 
 **Team:** Avengers · **Event:** HackOut 2026 · **Track:** Fintech / AI for Bharat
 --
-**USER DASHBOARD:** `https://samriddhiai-m8fcqohhx33kcikctpahz4.streamlit.app/`
+**USER DASHBOARD:** https://samriddhiai-m8fcqohhx33kcikctpahz4.streamlit.app/
 
-**BANK DASHBOARD** `https://samriddhiai-fwuuxrnfp8t6qqgrfbejvj.streamlit.app/`
+**BANK DASHBOARD** https://samriddhiai-fwuuxrnfp8t6qqgrfbejvj.streamlit.app/
 
 ---
 
