@@ -74,7 +74,7 @@ def _chatbot_url_for(customer_id):
     if _is_cloud():
         base = "https://<YOUR-CHATBOT-APP>.streamlit.app"   # set after deploy
     else:
-        base = "http://127.0.0.1:8503"
+        base = "https://samriddhiai-ykdcvwhe7sheeghqrdgr5i.streamlit.app"
     return f"{base}/?customer_id={customer_id}"
 
 # ------------------------------------------------------------------

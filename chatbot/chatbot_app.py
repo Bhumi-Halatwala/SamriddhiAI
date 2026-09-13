@@ -237,7 +237,7 @@ with head_col:
         """
         <div style="padding-top: 0.2rem;">
             <h1 style="font-size: 1.35rem; font-weight: 700; margin: 0; color: inherit;">Bharat Banking AI</h1>
-            <span style="color: inherit; opacity: 0.75; font-size: 0.82rem;">Multilingual Voice & Banking Assistant</span>
+            <span style="color: inherit; opacity: 0.75; font-size: 0.82rem;">Multilingual & Banking Assistant</span>
         </div>
         """,
         unsafe_allow_html=True,
