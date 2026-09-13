@@ -44,7 +44,8 @@ st.set_page_config(page_title="Samriddhi AI", layout="centered")
 
 
 # Load clean custom styling
-with open("assets/style.css") as f:
+import pathlib as _pl
+with open(_pl.Path(__file__).parent / "assets" / "style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # ---- Language Selection Map (All 12 Indian Languages) ----
