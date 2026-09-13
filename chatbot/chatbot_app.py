@@ -40,7 +40,7 @@ if VOICE_ENABLED:
 else:
     print("[chatbot] Cloud detected — voice disabled, text-only mode")
 
-st.set_page_config(page_title="Bharat Banking AI", layout="centered")
+st.set_page_config(page_title="Samriddhi AI", layout="centered")
 
 
 # Load clean custom styling
@@ -236,8 +236,8 @@ with head_col:
     st.markdown(
         """
         <div style="padding-top: 0.2rem;">
-            <h1 style="font-size: 1.35rem; font-weight: 700; margin: 0; color: inherit;">Bharat Banking AI</h1>
-            <span style="color: inherit; opacity: 0.75; font-size: 0.82rem;">Multilingual & Banking Assistant</span>
+            <h1 style="font-size: 1.35rem; font-weight: 700; margin: 0; color: inherit;">Samriddhi AI Chatbot</h1>
+            <span style="color: inherit; opacity: 0.75; font-size: 0.82rem;">Multilingual Voice & Banking Assistant</span>
         </div>
         """,
         unsafe_allow_html=True,
