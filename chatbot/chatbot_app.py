@@ -8,10 +8,37 @@ import chatbot_engine
 importlib.reload(chatbot_engine)
 from chatbot_engine import ChatbotEngine
 
-import voice_ai
-importlib.reload(voice_ai)
-from voice_ai import IndicF5TTS, IndicConformerASR
-from streamlit_mic_recorder import mic_recorder
+import os as _os
+import pathlib as _pathlib
+
+# Cloud detection: Streamlit Community Cloud has limited RAM and cannot host
+# torch + the AI4Bharat models. We disable voice automatically in that env.
+_IS_CLOUD = (
+    _os.environ.get("IS_STREAMLIT_CLOUD")
+    or "streamlit" in _os.environ.get("HOSTNAME", "").lower()
+    or _pathlib.Path("/mount/src").exists()
+)
+
+VOICE_ENABLED = not _IS_CLOUD
+
+IndicF5TTS = None
+IndicConformerASR = None
+mic_recorder = None
+
+if VOICE_ENABLED:
+    try:
+        import voice_ai
+        importlib.reload(voice_ai)
+        from voice_ai import IndicF5TTS, IndicConformerASR
+        from streamlit_mic_recorder import mic_recorder
+    except Exception as _e:
+        print(f"[chatbot] Voice import failed, running text-only: {_e}")
+        VOICE_ENABLED = False
+        IndicF5TTS = None
+        IndicConformerASR = None
+        mic_recorder = None
+else:
+    print("[chatbot] Cloud detected — voice disabled, text-only mode")
 
 st.set_page_config(page_title="Bharat Banking AI", layout="centered")
 
@@ -143,10 +170,10 @@ if not customer_list:
     st.stop()
 
 if "tts" not in st.session_state:
-    st.session_state.tts = IndicF5TTS()
+    st.session_state.tts = IndicF5TTS() if VOICE_ENABLED and IndicF5TTS else None if VOICE_ENABLED and IndicF5TTS else None
 
 if "asr" not in st.session_state:
-    st.session_state.asr = IndicConformerASR()
+    st.session_state.asr = IndicConformerASR() if VOICE_ENABLED and IndicConformerASR else None if VOICE_ENABLED and IndicConformerASR else None
 
 if "current_lang_name" not in st.session_state:
     st.session_state.current_lang_name = "हिंदी (Hindi)"
@@ -198,7 +225,7 @@ with st.sidebar:
         current_lang = LANGUAGES[st.session_state.current_lang_name]
         st.session_state.bot = ChatbotEngine(language=current_lang, customer_id=st.session_state.active_customer_id)
         first_msg = st.session_state.bot.start()
-        first_audio = st.session_state.tts.synthesize(first_msg, lang=current_lang)
+        first_audio = st.session_state.tts.synthesize(first_msg, lang=current_lang) if VOICE_ENABLED and st.session_state.tts else None
         st.session_state.chat_history = [("bot", first_msg, first_audio)]
         st.rerun()
 
@@ -233,7 +260,7 @@ if "bot" not in st.session_state or st.session_state.current_lang_name != select
     if "bot" not in st.session_state or len(st.session_state.get("chat_history", [])) <= 1:
         st.session_state.bot = ChatbotEngine(language=new_lang, customer_id=st.session_state.active_customer_id)
         welcome_msg = st.session_state.bot.start()
-        welcome_audio = st.session_state.tts.synthesize(welcome_msg, lang=new_lang)
+        welcome_audio = st.session_state.tts.synthesize(welcome_msg, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
         st.session_state.chat_history = [("bot", welcome_msg, welcome_audio)]
     else:
         # Switched language mid-conversation
@@ -261,24 +288,25 @@ for idx, item in enumerate(st.session_state.chat_history):
 sr_lang = SR_LANG_MAP.get(new_lang, "hi-IN")
 start_prompt, stop_prompt = MIC_PROMPTS.get(new_lang, MIC_PROMPTS["hi"])
 
-# 1. Voice Input using mic_recorder
-col_mic, col_label = st.columns([1, 2])
-with col_mic:
-    audio_record = mic_recorder(
+# 1. Voice Input using mic_recorder (only when voice is enabled)
+if VOICE_ENABLED and mic_recorder is not None:
+  col_mic, col_label = st.columns([1, 2])
+  with col_mic:
+      audio_record = mic_recorder(
         start_prompt=start_prompt,
         stop_prompt=stop_prompt,
         just_once=True,
         use_container_width=True,
         format="wav",
         key=f"voice_rec_{st.session_state.bot.mode}_{st.session_state.bot.step_index}_{len(st.session_state.chat_history)}",
-    )
-with col_label:
-    st.caption(f"Tap to speak in {selected_lang_name.split(' ')[0]}, then tap again to submit.")
+      )
+  with col_label:
+      st.caption(f"Tap to speak in {selected_lang_name.split(' ')[0]}, then tap again to submit.")
 
 # Process recorded voice
-if audio_record and audio_record.get("bytes"):
-    audio_id = audio_record.get("id")
-    if audio_id != st.session_state.get("_last_processed_audio_id"):
+  if audio_record and audio_record.get("bytes"):
+      audio_id = audio_record.get("id")
+      if audio_id != st.session_state.get("_last_processed_audio_id"):
         st.session_state["_last_processed_audio_id"] = audio_id
         
         with st.spinner("Processing speech / અવાજ રેકોર્ડિંગ પ્રોસેસ થઈ રહ્યું છે..."):
@@ -288,7 +316,7 @@ if audio_record and audio_record.get("bytes"):
             st.session_state.pop("speech_warning", None)
             st.session_state.chat_history.append(("user", f"{transcribed_text}", None))
             bot_reply = st.session_state.bot.step(transcribed_text)
-            reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang)
+            reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
             st.session_state.chat_history.append(("bot", bot_reply, reply_audio))
             st.rerun()
         else:
@@ -313,7 +341,7 @@ if st.session_state.bot.mode == "loan_onboarding" and not st.session_state.bot.f
                 clean_reply = chip_text.split(" ")[0].replace("₹", "").replace(",", "")
                 st.session_state.chat_history.append(("user", chip_text, None))
                 bot_reply = st.session_state.bot.step(clean_reply if clean_reply else chip_text)
-                reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang)
+                reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
                 st.session_state.chat_history.append(("bot", bot_reply, reply_audio))
                 st.rerun()
         
@@ -322,7 +350,7 @@ if st.session_state.bot.mode == "loan_onboarding" and not st.session_state.bot.f
         if chip_cols[-1].button(exit_label, key="btn_exit_loan", use_container_width=True):
             st.session_state.bot.mode = "general"
             menu_msg = st.session_state.bot.start()
-            menu_audio = st.session_state.tts.synthesize(menu_msg, lang=new_lang)
+            menu_audio = st.session_state.tts.synthesize(menu_msg, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
             st.session_state.chat_history.append(("bot", menu_msg, menu_audio))
             st.rerun()
 
@@ -338,7 +366,7 @@ else:
             st.session_state.pop("speech_warning", None)
             st.session_state.chat_history.append(("user", label, None))
             bot_reply = st.session_state.bot.step(query_text)
-            reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang)
+            reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
             st.session_state.chat_history.append(("bot", bot_reply, reply_audio))
             st.rerun()
 
@@ -351,7 +379,7 @@ else:
                 st.session_state.pop("speech_warning", None)
                 st.session_state.chat_history.append(("user", label, None))
                 bot_reply = st.session_state.bot.step(query_text)
-                reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang)
+                reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
                 st.session_state.chat_history.append(("bot", bot_reply, reply_audio))
                 st.rerun()
 
@@ -361,6 +389,6 @@ if user_input:
     st.session_state.pop("speech_warning", None)
     st.session_state.chat_history.append(("user", user_input, None))
     bot_reply = st.session_state.bot.step(user_input)
-    reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang)
+    reply_audio = st.session_state.tts.synthesize(bot_reply, lang=new_lang) if VOICE_ENABLED and st.session_state.tts else None
     st.session_state.chat_history.append(("bot", bot_reply, reply_audio))
     st.rerun()

@@ -10,7 +10,9 @@ import numpy as np
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 CUSTOMER_FILE = os.path.join(DATA_DIR, "customer_master.csv")
-TRANSACTION_FILE = os.path.join(DATA_DIR, "transaction_ledger.csv")
+_candidate_csv = os.path.join(DATA_DIR, "transaction_ledger.csv")
+_candidate_pq = os.path.join(DATA_DIR, "transaction_ledger.parquet")
+TRANSACTION_FILE = _candidate_pq if os.path.exists(_candidate_pq) else _candidate_csv
 
 class DataManager:
     _instance = None
@@ -129,21 +131,33 @@ class DataManager:
         txs = []
         if os.path.exists(TRANSACTION_FILE):
             try:
-                # Read chunks efficiently
-                for chunk in pd.read_csv(TRANSACTION_FILE, chunksize=40000):
-                    matches = chunk[chunk["customer_id"] == customer_id]
-                    if not matches.empty:
-                        for _, row in matches.iterrows():
-                            txs.append({
-                                "date": str(row["date"]),
-                                "amount": abs(float(row["amount"])),
-                                "direction": str(row["direction"]),
-                                "channel": str(row["channel"]),
-                                "narration": str(row["narration_raw"]),
-                                "category": str(row["true_category"]).title(),
-                            })
-                    if len(txs) >= 15:
-                        break
+                if TRANSACTION_FILE.endswith(".parquet"):
+                    df = pd.read_parquet(TRANSACTION_FILE)
+                    matches = df[df["customer_id"] == customer_id].head(15)
+                    for _, row in matches.iterrows():
+                        txs.append({
+                            "date": str(row["date"]),
+                            "amount": abs(float(row["amount"])),
+                            "direction": str(row["direction"]),
+                            "channel": str(row["channel"]),
+                            "narration": str(row["narration_raw"]),
+                            "category": str(row["true_category"]).title(),
+                        })
+                else:
+                    for chunk in pd.read_csv(TRANSACTION_FILE, chunksize=40000):
+                        matches = chunk[chunk["customer_id"] == customer_id]
+                        if not matches.empty:
+                            for _, row in matches.iterrows():
+                                txs.append({
+                                    "date": str(row["date"]),
+                                    "amount": abs(float(row["amount"])),
+                                    "direction": str(row["direction"]),
+                                    "channel": str(row["channel"]),
+                                    "narration": str(row["narration_raw"]),
+                                    "category": str(row["true_category"]).title(),
+                                })
+                        if len(txs) >= 15:
+                            break
             except Exception as e:
                 print(f"Error reading transaction ledger: {e}")
 
