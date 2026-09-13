@@ -70,7 +70,12 @@ CATEGORY_LABELS = {
 
 
 def _chatbot_url_for(customer_id):
-    return f"http://127.0.0.1:8503/?customer_id={customer_id}"
+    """Return the chatbot URL — cloud in production, localhost in local dev."""
+    if _is_cloud():
+        base = "https://<YOUR-CHATBOT-APP>.streamlit.app"   # set after deploy
+    else:
+        base = "http://127.0.0.1:8503"
+    return f"{base}/?customer_id={customer_id}"
 
 # ------------------------------------------------------------------
 # Altair chart helpers — clean light background, our palette
@@ -484,10 +489,7 @@ def main():
 
     st.markdown(viewing_label(customer_id), unsafe_allow_html=True)
 
-    if _is_cloud():
-        tabs = st.tabs(["My account", "My money", "For you"])
-    else:
-        tabs = st.tabs(["My account", "My money", "For you", "Chat"])
+    tabs = st.tabs(["My account", "My money", "For you", "Chat"])
 
     with tabs[0]:
         render_my_account(row, life_row, stress_row)
@@ -495,9 +497,8 @@ def main():
         render_my_money(customer_id, row, stress_row)
     with tabs[2]:
         render_for_you(bundle, row, stress_row)
-    if not _is_cloud():
-        with tabs[3]:
-            render_chat_tab(customer_id)
+    with tabs[3]:
+        render_chat_tab(customer_id)
 
 
 if __name__ == "__main__":
